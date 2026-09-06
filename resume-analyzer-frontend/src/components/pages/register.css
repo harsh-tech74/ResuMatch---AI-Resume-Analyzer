@@ -1,0 +1,328 @@
+ .register-page {
+    min-height: 100vh;
+    display: flex;
+    background: #f8fafc;
+}
+
+/* =========================
+   LEFT SECTION
+========================= */
+
+.register-left {
+    width: 50%;
+    min-height: 100vh;
+    padding: 50px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background: linear-gradient(135deg, #eef2ff, #f8faff);
+}
+
+.register-logo {
+    position: absolute;
+    top: 35px;
+    left: 50px;
+
+    font-size: 25px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.register-logo span {
+    color: #6366f1;
+}
+
+.register-left-content {
+    max-width: 500px;
+}
+
+.register-left h1 {
+    margin: 0 0 20px;
+    font-size: 52px;
+    line-height: 1.1;
+    font-weight: 700;
+    color: #111827;
+}
+
+.register-left h1 span {
+    color: #6366f1;
+}
+
+.register-left p {
+    font-size: 18px;
+    line-height: 1.7;
+    color: #6b7280;
+}
+
+/* =========================
+   RIGHT SECTION
+========================= */
+
+.register-right {
+    width: 50%;
+    min-height: 100vh;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    background: #ffffff;
+}
+
+.register-box {
+    width: 100%;
+    max-width: 420px;
+    padding: 40px;
+}
+
+.register-box h2 {
+    margin: 0 0 8px;
+
+    font-size: 32px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.register-subtitle {
+    margin-bottom: 25px;
+
+    font-size: 15px;
+    color: #6b7280;
+}
+
+/* =========================
+   FORM
+========================= */
+
+.register-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.register-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.register-form-group label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.register-form-group input {
+    width: 100%;
+    height: 47px;
+
+    padding: 0 14px;
+
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+
+    outline: none;
+
+    font-size: 15px;
+    color: #111827;
+    background: #ffffff;
+
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.register-form-group input:focus {
+    border-color: #6366f1;
+
+    box-shadow:
+        0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+/* =========================
+   PASSWORD
+========================= */
+
+.register-password-wrapper {
+    position: relative;
+}
+
+.register-password-wrapper input {
+    padding-right: 55px;
+}
+
+.register-password-toggle {
+    position: absolute;
+
+    right: 14px;
+    top: 50%;
+
+    transform: translateY(-50%);
+
+    border: none;
+    background: transparent;
+
+    cursor: pointer;
+
+    color: #6366f1;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+/* =========================
+   REGISTER BUTTON
+========================= */
+
+.register-button {
+    width: 100%;
+    height: 49px;
+
+    margin-top: 5px;
+
+    border: none;
+    border-radius: 8px;
+
+    background: #6366f1;
+    color: #ffffff;
+
+    font-size: 16px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition: background 0.2s, transform 0.1s;
+}
+
+.register-button:hover {
+    background: #4f46e5;
+}
+
+.register-button:active {
+    transform: scale(0.99);
+}
+
+/* =========================
+   DIVIDER
+========================= */
+
+.register-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    margin: 23px 0;
+
+    color: #9ca3af;
+    font-size: 12px;
+}
+
+.register-divider::before,
+.register-divider::after {
+    content: "";
+
+    flex: 1;
+
+    height: 1px;
+
+    background: #e5e7eb;
+}
+
+/* =========================
+   SOCIAL BUTTONS
+========================= */
+
+.register-social-buttons {
+    display: flex;
+    gap: 12px;
+}
+
+.register-social-button {
+    flex: 1;
+
+    height: 45px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: 8px;
+
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+
+    background: #ffffff;
+    color: #111827;
+
+    font-size: 14px;
+    font-weight: 500;
+
+    cursor: pointer;
+
+    transition: background 0.2s, box-shadow 0.2s;
+}
+
+.register-social-button svg {
+    width: 19px;
+    height: 19px;
+}
+
+.register-social-button:hover {
+    background: #f9fafb;
+
+    box-shadow:
+        0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+/* =========================
+   LOGIN LINK
+========================= */
+
+.login-link {
+    margin-top: 22px;
+
+    text-align: center;
+
+    font-size: 14px;
+    color: #6b7280;
+}
+
+.login-link a {
+    color: #6366f1;
+
+    font-weight: 600;
+
+    text-decoration: none;
+}
+
+.login-link a:hover {
+    text-decoration: underline;
+}
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media (max-width: 900px) {
+
+    .register-left {
+        display: none;
+    }
+
+    .register-right {
+        width: 100%;
+    }
+
+    .register-box {
+        max-width: 450px;
+        padding: 30px;
+    }
+}
+
+@media (max-width: 500px) {
+
+    .register-box {
+        padding: 25px 20px;
+    }
+
+    .register-box h2 {
+        font-size: 28px;
+    }
+}
