@@ -1,270 +1,83 @@
+import { useEffect, useState } from "react";
 import "./dashboard.css";
 
 function Dashboard() {
+    const [user, setUser] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchProfile = async () => {
+            try {
+                const token = localStorage.getItem("token");
+
+                // No token → go to login
+                if (!token) {
+                    window.location.href = "/login";
+                    return;
+                }
+
+                const response = await fetch(
+                    "http://localhost:5000/api/user/profile",
+                    {
+                        method: "GET",
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                        },
+                    }
+                );
+
+                const data = await response.json();
+
+                // Token invalid/expired
+                if (!response.ok) {
+                    localStorage.removeItem("token");
+                    localStorage.removeItem("user");
+
+                    window.location.href = "/login";
+                    return;
+                }
+
+                // Store user data received from backend
+                setUser(data.user);
+
+            } catch (error) {
+                console.error("Profile fetch error:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchProfile();
+    }, []);
+
+    // While profile is loading
+    if (loading) {
+        return <p>Loading...</p>;
+    }
+
     return (
-        <div className="dashboard-page">
+        <div className="dashboard">
 
-            {/* Sidebar */}
-            <aside className="dashboard-sidebar">
+            {/* YOUR EXISTING DASHBOARD JSX STARTS HERE */}
 
-                <div className="dashboard-logo">
-                    Resu<span>Match</span>
+            {/* Header */}
+            <header className="dashboard-header">
+
+                <div className="profile">
+                    <span>{user?.name}</span>
+                    <small>Job Seeker</small>
                 </div>
 
-                <nav className="dashboard-nav">
+            </header>
 
-                    <a href="/dashboard" className="nav-item active">
-                        <span>▦</span>
-                        Dashboard
-                    </a>
 
-                    <a href="#" className="nav-item">
-                        <span>▤</span>
-                        My Resumes
-                    </a>
+            {/* Welcome */}
+            <section className="welcome-section">
+                <h2>Welcome back, {user?.name} 👋</h2>
+            </section>
 
-                    <a href="#" className="nav-item">
-                        <span>◷</span>
-                        Analysis History
-                    </a>
 
-                    <a href="#" className="nav-item">
-                        <span>⚙</span>
-                        Settings
-                    </a>
-
-                </nav>
-
-                <div className="sidebar-bottom">
-
-                    <a href="/login" className="nav-item logout">
-                        <span>↪</span>
-                        Logout
-                    </a>
-
-                </div>
-
-            </aside>
-
-
-            {/* Main Content */}
-            <main className="dashboard-main">
-
-                {/* Header */}
-                <header className="dashboard-header">
-
-                    <div>
-                        <h1>Dashboard</h1>
-                        <p>Manage your resumes and analyze your career profile.</p>
-                    </div>
-
-                    <div className="profile-section">
-                        <div className="notification">♧</div>
-
-                        <div className="profile-avatar">
-                            H
-                        </div>
-
-                        <div className="profile-info">
-                            <span>Harsh</span>
-                            <small>Job Seeker</small>
-                        </div>
-                    </div>
-
-                </header>
-
-
-                {/* Welcome Section */}
-                <section className="welcome-section">
-
-                    <div>
-                        <h2>Welcome back, Harsh 👋</h2>
-
-                        <p>
-                            Ready to improve your resume and increase your chances
-                            of getting shortlisted?
-                        </p>
-                    </div>
-
-                </section>
-
-
-                {/* Stats */}
-                <section className="stats-container">
-
-                    <div className="stat-card">
-                        <div className="stat-icon">📄</div>
-
-                        <div>
-                            <p>Total Resumes</p>
-                            <h3>3</h3>
-                        </div>
-                    </div>
-
-
-                    <div className="stat-card">
-                        <div className="stat-icon">▥</div>
-
-                        <div>
-                            <p>Average ATS Score</p>
-                            <h3>78%</h3>
-                        </div>
-                    </div>
-
-
-                    <div className="stat-card">
-                        <div className="stat-icon">◉</div>
-
-                        <div>
-                            <p>Total Analyses</p>
-                            <h3>8</h3>
-                        </div>
-                    </div>
-
-                </section>
-
-
-                {/* Upload Resume */}
-                <section className="upload-section">
-
-                    <div className="section-heading">
-                        <h2>Analyze Your Resume</h2>
-
-                        <p>
-                            Upload your resume and get AI-powered insights.
-                        </p>
-                    </div>
-
-
-                    <div className="upload-card">
-
-                        <div className="upload-icon">
-                            ↑
-                        </div>
-
-                        <h3>Upload your resume</h3>
-
-                        <p>
-                            Drag & drop your resume here or browse your files
-                        </p>
-
-                        <span className="file-info">
-                            Supported format: PDF
-                        </span>
-
-                        <button className="upload-button">
-                            Choose Resume
-                        </button>
-
-                    </div>
-
-                </section>
-
-
-                {/* Recent Analyses */}
-                <section className="recent-section">
-
-                    <div className="section-heading recent-heading">
-
-                        <div>
-                            <h2>Recent Analyses</h2>
-                            <p>Your latest resume analysis results.</p>
-                        </div>
-
-                        <button className="view-all">
-                            View All
-                        </button>
-
-                    </div>
-
-
-                    <div className="analysis-list">
-
-                        <div className="analysis-item">
-
-                            <div className="analysis-info">
-
-                                <div className="resume-icon">
-                                    📄
-                                </div>
-
-                                <div>
-                                    <h3>Frontend Developer Resume</h3>
-                                    <p>Analyzed 2 days ago</p>
-                                </div>
-
-                            </div>
-
-                            <div className="analysis-score">
-                                <span>82%</span>
-                                <small>ATS Score</small>
-                            </div>
-
-                            <button className="analysis-button">
-                                View →
-                            </button>
-
-                        </div>
-
-
-                        <div className="analysis-item">
-
-                            <div className="analysis-info">
-
-                                <div className="resume-icon">
-                                    📄
-                                </div>
-
-                                <div>
-                                    <h3>React Developer Resume</h3>
-                                    <p>Analyzed 5 days ago</p>
-                                </div>
-
-                            </div>
-
-                            <div className="analysis-score">
-                                <span>76%</span>
-                                <small>ATS Score</small>
-                            </div>
-
-                            <button className="analysis-button">
-                                View →
-                            </button>
-
-                        </div>
-
-
-                        <div className="analysis-item">
-
-                            <div className="analysis-info">
-
-                                <div className="resume-icon">
-                                    📄
-                                </div>
-
-                                <div>
-                                    <h3>Software Engineer Resume</h3>
-                                    <p>Analyzed 1 week ago</p>
-                                </div>
-
-                            </div>
-
-                            <div className="analysis-score">
-                                <span>71%</span>
-                                <small>ATS Score</small>
-                            </div>
-
-                            <button className="analysis-button">
-                                View →
-                            </button>
-
-                        </div>
-
-                    </div>
-
-                </section>
-
-            </main>
+            {/* KEEP THE REST OF YOUR EXISTING DASHBOARD CODE HERE */}
 
         </div>
     );

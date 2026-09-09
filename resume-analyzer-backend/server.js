@@ -4,6 +4,7 @@ const dotenv = require("dotenv");
 
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/authroutes");
+const userRoutes = require("./routes/userroutes");
 
 dotenv.config();
 
@@ -18,8 +19,8 @@ app.get("/", (req, res) => {
     res.send("ResumeAI Backend is running");
 });
 
-// Authentication routes
 app.use("/api/auth", authRoutes);
+app.use("/api/user", userRoutes);
 
 const PORT = 5000;
 
