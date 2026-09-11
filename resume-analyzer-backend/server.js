@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
-
+const resumeRoutes = require("./routes/resumeRoutes");
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/authroutes");
 const userRoutes = require("./routes/userroutes");
@@ -21,6 +21,7 @@ app.get("/", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
+app.use("/api/resume", resumeRoutes);
 
 const PORT = 5000;
 
