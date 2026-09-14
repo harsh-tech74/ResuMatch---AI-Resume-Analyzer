@@ -1,12 +1,53 @@
+const { PDFParse } = require("pdf-parse");
+const mammoth = require("mammoth");
 const Resume = require("../models/resume");
+const fs = require("fs");
+const path = require("path");
+const { createWorker } = require("tesseract.js");
+
 
 const uploadResume = async (req, res) => {
     try {
-        // Check if a file was uploaded
         if (!req.file) {
             return res.status(400).json({
                 message: "Please upload a resume",
             });
+        }
+
+        const extension = path.extname(req.file.originalname).toLowerCase();
+
+        let extractedText = "";
+
+        if (extension === ".pdf") {
+            const fileBuffer = fs.readFileSync(req.file.path);
+
+            const parser = new PDFParse({ data: fileBuffer });
+
+            const pdfData = await parser.getText();
+
+            extractedText = pdfData.text;
+
+            await parser.destroy();
+        }
+        else if (extension === ".docx") {
+            const result = await mammoth.extractRawText({
+                path: req.file.path,
+            });
+
+            extractedText = result.value;
+        }
+        else if (
+            extension === ".jpg" ||
+            extension === ".jpeg" ||
+            extension === ".png"
+        ) {
+            const worker = await createWorker("eng");
+
+            const result = await worker.recognize(req.file.path);
+
+            extractedText = result.data.text;
+
+            await worker.terminate();
         }
 
         const resume = await Resume.create({
@@ -14,21 +55,37 @@ const uploadResume = async (req, res) => {
             fileName: req.file.originalname,
             filePath: req.file.path,
             fileType: req.file.mimetype,
+            extractedText: extractedText,
         });
 
         res.status(201).json({
-            message: "Resume uploaded successfully",
+            message: "Resume uploaded and text extracted successfully",
             resume,
         });
     } catch (error) {
         console.error("Resume upload error:", error);
 
         res.status(500).json({
-            message: "Server error while uploading resume",
+            message: error.message,
+        });
+    }
+};
+const getUserResumes = async (req, res) => {
+    try {
+        const resumes = await Resume.find({
+            userId: req.user.userId,
+        }).sort({ createdAt: -1 });
+
+        res.status(200).json({
+            resumes,
+        });
+    } catch (error) {
+        console.error("Get resumes error:", error);
+
+        res.status(500).json({
+            message: "Server error while fetching resumes",
         });
     }
 };
 
-module.exports = {
-    uploadResume,
-};
+module.exports = { uploadResume, getUserResumes };

@@ -7,6 +7,16 @@ type User = {
     email: string;
 };
 
+type Resume = {
+    _id: string;
+    fileName: string;
+    fileType: string;
+    filePath: string;
+    extractedText: string;
+    createdAt: string;
+    updatedAt: string;
+};
+
 function Dashboard() {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
@@ -17,6 +27,90 @@ function Dashboard() {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
     const [uploadMessage, setUploadMessage] = useState("");
+
+    const [resumes, setResumes] = useState<Resume[]>([]);
+
+    // Fetch user's resumes
+    const fetchResumes = async () => {
+        const token = localStorage.getItem("token");
+
+        if (!token) {
+            window.location.href = "/login";
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                "http://localhost:5000/api/resume",
+                {
+                    method: "GET",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                console.error(
+                    "Failed to fetch resumes:",
+                    data.message
+                );
+                return;
+            }
+
+            setResumes(data.resumes);
+        } catch (error) {
+            console.error(
+                "Error fetching resumes:",
+                error
+            );
+        }
+    };
+
+    // Fetch resumes when dashboard loads
+    useEffect(() => {
+        const loadResumes = async () => {
+            const token = localStorage.getItem("token");
+
+            if (!token) {
+                window.location.href = "/login";
+                return;
+            }
+
+            try {
+                const response = await fetch(
+                    "http://localhost:5000/api/resume",
+                    {
+                        method: "GET",
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                        },
+                    }
+                );
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    console.error(
+                        "Failed to fetch resumes:",
+                        data.message
+                    );
+                    return;
+                }
+
+                setResumes(data.resumes);
+            } catch (error) {
+                console.error(
+                    "Error fetching resumes:",
+                    error
+                );
+            }
+        };
+
+        loadResumes();
+    }, []);
 
     // Logout user
     const handleLogout = () => {
@@ -29,7 +123,9 @@ function Dashboard() {
     // Upload resume
     const handleUpload = async () => {
         if (!selectedFile) {
-            setUploadMessage("Please select a resume first.");
+            setUploadMessage(
+                "Please select a resume first."
+            );
             return;
         }
 
@@ -68,12 +164,26 @@ function Dashboard() {
                 return;
             }
 
-            setUploadMessage("Resume uploaded successfully!");
+            setUploadMessage(
+                "Resume uploaded successfully!"
+            );
 
-            console.log("Uploaded resume:", data.resume);
+            console.log(
+                "Uploaded resume:",
+                data.resume
+            );
+
+            // Clear selected file
+            setSelectedFile(null);
+
+            // Refresh resume list
+            await fetchResumes();
 
         } catch (error) {
-            console.error("Upload error:", error);
+            console.error(
+                "Upload error:",
+                error
+            );
 
             setUploadMessage(
                 "Something went wrong while uploading."
@@ -116,7 +226,7 @@ function Dashboard() {
                     return;
                 }
 
-                // Store user data received from backend
+                // Store user data
                 setUser(data.user);
 
             } catch (error) {
@@ -204,7 +314,7 @@ function Dashboard() {
                             className="profile-trigger"
                             onClick={() =>
                                 setShowProfileMenu(
-                                    prev => !prev
+                                    (prev) => !prev
                                 )
                             }
                         >
@@ -333,11 +443,8 @@ function Dashboard() {
                         </div>
 
                         <div>
-
                             <p>ATS Score</p>
-
                             <h3>--</h3>
-
                         </div>
 
                     </div>
@@ -349,11 +456,8 @@ function Dashboard() {
                         </div>
 
                         <div>
-
                             <p>Resumes</p>
-
-                            <h3>0</h3>
-
+                            <h3>{resumes.length}</h3>
                         </div>
 
                     </div>
@@ -365,11 +469,8 @@ function Dashboard() {
                         </div>
 
                         <div>
-
                             <p>Analyses</p>
-
                             <h3>0</h3>
-
                         </div>
 
                     </div>
@@ -389,7 +490,7 @@ function Dashboard() {
 
                     <input
                         type="file"
-                        accept=".pdf,.doc,.docx"
+                        accept=".pdf,.docx,.jpg,.jpeg,.png"
                         onChange={(e) => {
                             const file =
                                 e.target.files?.[0] || null;
@@ -418,6 +519,48 @@ function Dashboard() {
                         <p className="upload-message">
                             {uploadMessage}
                         </p>
+                    )}
+
+                </section>
+
+                {/* My Resumes */}
+                <section className="resumes-section">
+
+                    <h2>My Resumes</h2>
+
+                    {resumes.length === 0 ? (
+                        <p>
+                            No resumes uploaded yet.
+                        </p>
+                    ) : (
+                        <div className="resume-list">
+
+                            {resumes.map((resume) => (
+                                <div
+                                    className="resume-card"
+                                    key={resume._id}
+                                >
+
+                                    <div>
+                                        <h3>
+                                            {resume.fileName}
+                                        </h3>
+
+                                        <p>
+                                            {resume.fileType}
+                                        </p>
+                                    </div>
+
+                                    <p>
+                                        {new Date(
+                                            resume.createdAt
+                                        ).toLocaleDateString()}
+                                    </p>
+
+                                </div>
+                            ))}
+
+                        </div>
                     )}
 
                 </section>

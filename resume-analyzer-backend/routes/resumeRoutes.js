@@ -3,7 +3,12 @@ const router = express.Router();
 
 const protect = require("../middleware/authmiddleware");
 const upload = require("../middleware/upload");
-const { uploadResume } = require("../controllers/resumecontroller");
+const {
+    uploadResume,
+    getUserResumes
+} = require("../controllers/resumecontroller");
+
+router.get("/", protect, getUserResumes);
 
 router.post(
     "/upload",
