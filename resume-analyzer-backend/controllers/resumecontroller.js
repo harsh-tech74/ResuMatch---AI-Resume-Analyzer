@@ -88,4 +88,38 @@ const getUserResumes = async (req, res) => {
     }
 };
 
-module.exports = { uploadResume, getUserResumes };
+const deleteResume = async (req, res) => {
+    try {
+        const resume = await Resume.findOne({
+            _id: req.params.id,
+            userId: req.user.userId,
+        });
+
+        if (!resume) {
+            return res.status(404).json({
+                message: "Resume not found",
+            });
+        }
+
+        await Resume.findByIdAndDelete(resume._id);
+
+        const filePath = path.resolve(resume.filePath);
+
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+        }
+
+        return res.status(200).json({
+            message: "Resume deleted successfully",
+        });
+    } catch (error) {
+        console.error("Delete resume error:", error);
+
+        return res.status(500).json({
+            message: "Server error while deleting resume",
+        });
+    }
+};
+
+
+module.exports = { uploadResume, getUserResumes, deleteResume };

@@ -46,16 +46,15 @@ function Login() {
                 return;
             }
 
-            // Store JWT token
             localStorage.setItem("token", data.token);
 
-            // Store logged-in user
+         
             localStorage.setItem(
                 "user",
                 JSON.stringify(data.user)
             );
 
-            // Redirect to dashboard
+          
             navigate("/dashboard");
 
         } catch {
@@ -68,7 +67,7 @@ function Login() {
     return (
         <div className="login-page">
 
-            {/* Left Section */}
+       
             <div className="login-left">
 
                 <div className="logo">
@@ -141,7 +140,6 @@ function Login() {
 
             </div>
 
-            {/* Right Section */}
             <div className="login-right">
 
                 <div className="login-card">
@@ -154,7 +152,7 @@ function Login() {
 
                     <form onSubmit={handleSubmit}>
 
-                        {/* Email */}
+                   
                         <label>Email Address</label>
 
                         <input
@@ -165,7 +163,7 @@ function Login() {
                             required
                         />
 
-                        {/* Password */}
+             
                         <label>Password</label>
 
                         <div className="password-box">
@@ -195,19 +193,16 @@ function Login() {
 
                         </div>
 
-                        {/* Forgot Password */}
                         <div className="forgot-password">
                             Forgot password?
                         </div>
-
-                        {/* Error */}
                         {error && (
                             <p className="login-error">
                                 {error}
                             </p>
                         )}
 
-                        {/* Login Button */}
+                      
                         <button
                             type="submit"
                             className="login-button"
@@ -220,12 +215,12 @@ function Login() {
 
                     </form>
 
-                    {/* Divider */}
+          
                     <div className="divider">
                         <span>or continue with</span>
                     </div>
 
-                    {/* Social Login */}
+                    
                     <div className="social-buttons">
 
                         <button type="button">
@@ -240,7 +235,7 @@ function Login() {
 
                     </div>
 
-                    {/* Register Link */}
+                    
                     <p className="signup-text">
                         Don't have an account?{" "}
 
@@ -254,7 +249,7 @@ function Login() {
 
                 </div>
 
-                {/* Security Text */}
+              
                 <div className="security-text">
                     🔒 Your data is secure with us.
                     <br />

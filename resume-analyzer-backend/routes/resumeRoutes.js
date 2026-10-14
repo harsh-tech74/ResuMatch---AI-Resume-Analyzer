@@ -5,10 +5,13 @@ const protect = require("../middleware/authmiddleware");
 const upload = require("../middleware/upload");
 const {
     uploadResume,
-    getUserResumes
+    getUserResumes,deleteResume
 } = require("../controllers/resumecontroller");
 
 router.get("/", protect, getUserResumes);
+
+router.delete("/:id", protect, deleteResume);
+
 
 router.post(
     "/upload",

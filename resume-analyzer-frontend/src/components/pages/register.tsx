@@ -23,7 +23,7 @@ function Register() {
 
     setError("");
 
-    // Check if passwords match
+  
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
@@ -67,28 +67,80 @@ function Register() {
   return (
     <div className="register-page">
 
-      {/* Left Section */}
-      <div className="register-left">
+      <div className="login-left">
 
-        <div className="register-logo">
+        <div className="logo">
           Resu<span>Match</span>
         </div>
 
-        <div className="register-left-content">
+        <div className="hero-content">
+
           <h1>
-            Build a stronger
-            <span> resume.</span>
+            AI-Powered
+            <br />
+            <span>Resume Analyzer</span>
           </h1>
 
           <p>
-            Create your ResumeAI account and get intelligent feedback
-            to improve your resume and stand out to recruiters.
+            Get AI insights, improve your resume, and
+            land your dream job faster.
           </p>
+
+          <div className="features">
+
+            <div className="feature">
+              <div className="feature-icon">▥</div>
+
+              <div>
+                <h3>ATS Score</h3>
+                <p>
+                  Check how well your resume performs
+                  in ATS systems
+                </p>
+              </div>
+            </div>
+
+            <div className="feature">
+              <div className="feature-icon">☆</div>
+
+              <div>
+                <h3>Skill Analysis</h3>
+                <p>
+                  Identify your key skills and strengths
+                </p>
+              </div>
+            </div>
+
+            <div className="feature">
+              <div className="feature-icon">▣</div>
+
+              <div>
+                <h3>Job Matching</h3>
+                <p>
+                  Find the best job matches for your profile
+                </p>
+              </div>
+            </div>
+
+            <div className="feature">
+              <div className="feature-icon">♧</div>
+
+              <div>
+                <h3>Smart Suggestions</h3>
+                <p>
+                  Get AI-powered suggestions to improve
+                  your resume
+                </p>
+              </div>
+            </div>
+
+          </div>
         </div>
 
       </div>
 
-      {/* Right Section */}
+
+     
       <div className="register-right">
 
         <div className="register-box">
@@ -104,7 +156,6 @@ function Register() {
             onSubmit={handleSubmit}
           >
 
-            {/* Full Name */}
             <div className="register-form-group">
               <label htmlFor="name">
                 Full Name
@@ -120,7 +171,7 @@ function Register() {
               />
             </div>
 
-            {/* Email */}
+   
             <div className="register-form-group">
               <label htmlFor="email">
                 Email
@@ -136,7 +187,7 @@ function Register() {
               />
             </div>
 
-            {/* Password */}
+           
             <div className="register-form-group">
               <label htmlFor="password">
                 Password
@@ -166,7 +217,7 @@ function Register() {
               </div>
             </div>
 
-            {/* Confirm Password */}
+       
             <div className="register-form-group">
               <label htmlFor="confirmPassword">
                 Confirm Password
@@ -204,14 +255,14 @@ function Register() {
               </div>
             </div>
 
-            {/* Error Message */}
+         
             {error && (
               <p className="register-error">
                 {error}
               </p>
             )}
 
-            {/* Register Button */}
+        
             <button
               type="submit"
               className="register-button"
@@ -224,12 +275,11 @@ function Register() {
 
           </form>
 
-          {/* Divider */}
           <div className="register-divider">
             <span>OR</span>
           </div>
 
-          {/* Social Login */}
+   
           <div className="register-social-buttons">
 
             <button
@@ -250,7 +300,6 @@ function Register() {
 
           </div>
 
-          {/* Login Link */}
           <p className="login-link">
             Already have an account?{" "}
 

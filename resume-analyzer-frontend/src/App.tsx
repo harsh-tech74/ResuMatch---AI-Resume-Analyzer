@@ -31,7 +31,7 @@ function App() {
           element={<Register />}
         />
 
-        {/* Protected Routes */}
+    
         <Route element={<ProtectedRoute />}>
 
           <Route

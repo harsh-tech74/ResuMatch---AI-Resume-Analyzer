@@ -31,7 +31,7 @@ const fileFilter = (req, file, cb) => {
     if (allowedExtensions.includes(extension)) {
         cb(null, true);
     } else {
-        cb(new Error("Only PDF, DOC, and DOCX files are allowed"), false);
+        cb(new Error("Only PDF, DOCX, JPG, JPEG, and PNG files are allowed"));
     }
 };
 

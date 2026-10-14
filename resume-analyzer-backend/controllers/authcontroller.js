@@ -20,10 +20,9 @@ const registerUser = async (req, res) => {
             });
         }
 
-        // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Create user
+        
         const user = await User.create({
             name,
             email,
@@ -54,14 +53,13 @@ const loginUser = async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        // Check fields
         if (!email || !password) {
             return res.status(400).json({
                 message: "Email and password are required"
             });
         }
 
-        // Find user
+       
         const user = await User.findOne({ email });
 
         if (!user) {
@@ -70,7 +68,7 @@ const loginUser = async (req, res) => {
             });
         }
 
-        // Compare password
+        
         const isPasswordCorrect = await bcrypt.compare(
             password,
             user.password
@@ -82,7 +80,6 @@ const loginUser = async (req, res) => {
             });
         }
 
-        // Create JWT
         const token = jwt.sign(
             {
                 userId: user._id

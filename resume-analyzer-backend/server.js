@@ -28,3 +28,29 @@ const PORT = 5000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
+
+app.use((err, req, res, next) => {
+    if (err.name === "MulterError") {
+        if (err.code === "LIMIT_FILE_SIZE") {
+            return res.status(400).json({
+                message: "File size must not exceed 5 MB",
+            });
+        }
+
+        return res.status(400).json({
+            message: err.message,
+        });
+    }
+
+    if (err.message === "Only PDF, DOCX, JPG, JPEG, and PNG files are allowed") {
+        return res.status(400).json({
+            message: err.message,
+        });
+    }
+
+    console.error(err);
+
+    return res.status(500).json({
+        message: "Internal server error",
+    });
+});

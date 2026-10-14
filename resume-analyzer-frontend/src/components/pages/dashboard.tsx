@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+
+import { useEffect, useRef, useState } from "react";
 import "./dashboard.css";
 import { FiPower } from "react-icons/fi";
 
@@ -17,9 +18,16 @@ type Resume = {
     updatedAt: string;
 };
 
+type Section = "dashboard" | "resumes" | "history";
+
+const API_URL = "http://localhost:5000/api";
+
 function Dashboard() {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
+
+    const [activeSection, setActiveSection] =
+        useState<Section>("dashboard");
 
     const [showProfileMenu, setShowProfileMenu] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -29,21 +37,145 @@ function Dashboard() {
     const [uploadMessage, setUploadMessage] = useState("");
 
     const [resumes, setResumes] = useState<Resume[]>([]);
+    const [deletingResumeId, setDeletingResumeId] = useState<string | null>(
+        null
+    );
 
-    // Fetch user's resumes
-    const fetchResumes = async () => {
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Load profile and resumes when the dashboard opens
+    useEffect(() => {
+        let cancelled = false;
+
+        const loadDashboard = async () => {
+            const token = localStorage.getItem("token");
+
+            if (!token) {
+                window.location.href = "/login";
+                return;
+            }
+
+            try {
+                const headers = {
+                    Authorization: `Bearer ${token}`,
+                };
+
+                const [profileResponse, resumesResponse] =
+                    await Promise.all([
+                        fetch(`${API_URL}/user/profile`, { headers }),
+                        fetch(`${API_URL}/resume`, { headers }),
+                    ]);
+
+                const profileData = await profileResponse.json();
+
+                if (!profileResponse.ok) {
+                    localStorage.removeItem("token");
+                    localStorage.removeItem("user");
+                    window.location.href = "/login";
+                    return;
+                }
+
+                const resumesData = await resumesResponse.json();
+
+                if (cancelled) return;
+
+                setUser(profileData.user);
+
+                if (resumesResponse.ok) {
+                    setResumes(
+                        Array.isArray(resumesData.resumes)
+                            ? resumesData.resumes
+                            : []
+                    );
+                } else {
+                    console.error(
+                        "Failed to fetch resumes:",
+                        resumesData.message
+                    );
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    console.error("Dashboard loading error:", error);
+                }
+            } finally {
+                if (!cancelled) {
+                    setLoading(false);
+                }
+            }
+        };
+
+        void loadDashboard();
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    // Validate selected resume
+    const validateFile = (file: File): string | null => {
+        const allowedExtensions = [
+            ".pdf",
+            ".docx",
+            ".jpg",
+            ".jpeg",
+            ".png",
+        ];
+
+        const fileName = file.name.toLowerCase();
+
+        const isAllowed = allowedExtensions.some((extension) =>
+            fileName.endsWith(extension)
+        );
+
+        if (!isAllowed) {
+            return "Only PDF, DOCX, JPG, JPEG, and PNG files are allowed.";
+        }
+
+        if (file.size === 0) {
+            return "The selected file is empty.";
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+            return "File size must not exceed 5 MB.";
+        }
+
+        return null;
+    };
+
+    // Log out the user
+    const handleLogout = () => {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        window.location.href = "/login";
+    };
+
+    // Delete a resume
+    const handleDeleteResume = async (resumeId: string) => {
+        if (deletingResumeId) return;
+
+        const confirmed = window.confirm(
+            "Are you sure you want to delete this resume? This action cannot be undone."
+        );
+
+        if (!confirmed) return;
+
         const token = localStorage.getItem("token");
 
         if (!token) {
+            alert("Your session has expired. Please log in again.");
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
             window.location.href = "/login";
             return;
         }
 
         try {
+            setDeletingResumeId(resumeId);
+
             const response = await fetch(
-                "http://localhost:5000/api/resume",
+                `${API_URL}/resume/${encodeURIComponent(resumeId)}`,
                 {
-                    method: "GET",
+                    method: "DELETE",
                     headers: {
                         Authorization: `Bearer ${token}`,
                     },
@@ -53,79 +185,54 @@ function Dashboard() {
             const data = await response.json();
 
             if (!response.ok) {
-                console.error(
-                    "Failed to fetch resumes:",
-                    data.message
+                throw new Error(
+                    data.message || "Failed to delete resume."
                 );
-                return;
             }
 
-            setResumes(data.resumes);
-        } catch (error) {
-            console.error(
-                "Error fetching resumes:",
-                error
+            // Remove the deleted resume from the UI
+            setResumes((currentResumes) =>
+                currentResumes.filter(
+                    (resume) => resume._id !== resumeId
+                )
             );
+
+            setUploadMessage("");
+        } catch (error) {
+            console.error("Delete resume error:", error);
+
+            alert(
+                error instanceof Error
+                    ? error.message
+                    : "Something went wrong while deleting the resume."
+            );
+        } finally {
+            setDeletingResumeId(null);
         }
     };
 
-    // Fetch resumes when dashboard loads
-    useEffect(() => {
-        const loadResumes = async () => {
-            const token = localStorage.getItem("token");
-
-            if (!token) {
-                window.location.href = "/login";
-                return;
-            }
-
-            try {
-                const response = await fetch(
-                    "http://localhost:5000/api/resume",
-                    {
-                        method: "GET",
-                        headers: {
-                            Authorization: `Bearer ${token}`,
-                        },
-                    }
-                );
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    console.error(
-                        "Failed to fetch resumes:",
-                        data.message
-                    );
-                    return;
-                }
-
-                setResumes(data.resumes);
-            } catch (error) {
-                console.error(
-                    "Error fetching resumes:",
-                    error
-                );
-            }
-        };
-
-        loadResumes();
-    }, []);
-
-    // Logout user
-    const handleLogout = () => {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-
-        window.location.href = "/login";
-    };
-
-    // Upload resume
+    // Upload the selected resume
     const handleUpload = async () => {
+        if (uploading) return;
+
         if (!selectedFile) {
-            setUploadMessage(
-                "Please select a resume first."
-            );
+            setUploadMessage("Please select a resume first.");
+            return;
+        }
+
+        const validationError = validateFile(selectedFile);
+
+        if (validationError) {
+            setUploadMessage(validationError);
+            return;
+        }
+
+        const token = localStorage.getItem("token");
+
+        if (!token) {
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+            window.location.href = "/login";
             return;
         }
 
@@ -133,19 +240,11 @@ function Dashboard() {
             setUploading(true);
             setUploadMessage("");
 
-            const token = localStorage.getItem("token");
-
-            if (!token) {
-                window.location.href = "/login";
-                return;
-            }
-
             const formData = new FormData();
-
             formData.append("resume", selectedFile);
 
-            const response = await fetch(
-                "http://localhost:5000/api/resume/upload",
+            const uploadResponse = await fetch(
+                `${API_URL}/resume/upload`,
                 {
                     method: "POST",
                     headers: {
@@ -155,215 +254,167 @@ function Dashboard() {
                 }
             );
 
-            const data = await response.json();
+            const uploadData = await uploadResponse.json();
 
-            if (!response.ok) {
+            if (!uploadResponse.ok) {
                 setUploadMessage(
-                    data.message || "Upload failed."
+                    uploadData.message || "Resume upload failed."
                 );
                 return;
             }
 
-            setUploadMessage(
-                "Resume uploaded successfully!"
-            );
-
-            console.log(
-                "Uploaded resume:",
-                data.resume
-            );
-
-            // Clear selected file
+            setUploadMessage("Resume uploaded successfully!");
             setSelectedFile(null);
 
-            // Refresh resume list
-            await fetchResumes();
+            if (fileInputRef.current) {
+                fileInputRef.current.value = "";
+            }
 
-        } catch (error) {
-            console.error(
-                "Upload error:",
-                error
+            // Refresh the resume list after successful upload
+            const listResponse = await fetch(
+                `${API_URL}/resume`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
             );
 
+            const listData = await listResponse.json();
+
+            if (listResponse.ok) {
+                setResumes(
+                    Array.isArray(listData.resumes)
+                        ? listData.resumes
+                        : []
+                );
+            } else {
+                console.error(
+                    "Could not refresh resume list:",
+                    listData.message
+                );
+            }
+        } catch (error) {
+            console.error("Resume upload error:", error);
+
             setUploadMessage(
-                "Something went wrong while uploading."
+                "Something went wrong. Please check your connection and try again."
             );
         } finally {
             setUploading(false);
         }
     };
 
-    // Fetch logged-in user's profile
-    useEffect(() => {
-        const fetchProfile = async () => {
-            try {
-                const token = localStorage.getItem("token");
-
-                // No token → go to login
-                if (!token) {
-                    window.location.href = "/login";
-                    return;
-                }
-
-                const response = await fetch(
-                    "http://localhost:5000/api/user/profile",
-                    {
-                        method: "GET",
-                        headers: {
-                            Authorization: `Bearer ${token}`,
-                        },
-                    }
-                );
-
-                const data = await response.json();
-
-                // Token invalid/expired
-                if (!response.ok) {
-                    localStorage.removeItem("token");
-                    localStorage.removeItem("user");
-
-                    window.location.href = "/login";
-                    return;
-                }
-
-                // Store user data
-                setUser(data.user);
-
-            } catch (error) {
-                console.error(
-                    "Profile fetch error:",
-                    error
-                );
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchProfile();
-    }, []);
-
-    // While profile is loading
     if (loading) {
         return <p>Loading...</p>;
     }
 
     return (
         <div className="dashboard-page">
-
-            {/* Sidebar */}
             <aside className="dashboard-sidebar">
-
                 <div className="dashboard-logo">
                     Resu<span>Match</span>
                 </div>
 
                 <nav className="dashboard-nav">
-
                     <a
-                        href="/dashboard"
-                        className="nav-item active"
+                        href="#dashboard"
+                        className={`nav-item ${activeSection === "dashboard" ? "active" : ""
+                            }`}
+                        onClick={(event) => {
+                            event.preventDefault();
+                            setActiveSection("dashboard");
+                        }}
                     >
                         <span>🏠</span>
                         Dashboard
                     </a>
 
                     <a
-                        href="#"
-                        className="nav-item"
+                        href="#my-resumes"
+                        className={`nav-item ${activeSection === "resumes" ? "active" : ""
+                            }`}
+                        onClick={(event) => {
+                            event.preventDefault();
+                            setActiveSection("resumes");
+                        }}
                     >
                         <span>📄</span>
                         My Resumes
                     </a>
 
                     <a
-                        href="#"
-                        className="nav-item"
+                        href="#analysis-history"
+                        className={`nav-item ${activeSection === "history" ? "active" : ""
+                            }`}
+                        onClick={(event) => {
+                            event.preventDefault();
+                            setActiveSection("history");
+                        }}
                     >
                         <span>📊</span>
                         Analysis History
                     </a>
-
                 </nav>
-
             </aside>
 
-            {/* Main Dashboard */}
             <main className="dashboard-main">
-
-                {/* Header */}
                 <header className="dashboard-header">
-
                     <div>
-                        <h1>Dashboard</h1>
+                        <h1>
+                            {activeSection === "dashboard"
+                                ? "Dashboard"
+                                : activeSection === "resumes"
+                                    ? "My Resumes"
+                                    : "Analysis History"}
+                        </h1>
 
                         <p>
-                            Manage your resumes and track
-                            your progress.
+                            {activeSection === "dashboard"
+                                ? "Manage your resumes and track your progress."
+                                : activeSection === "resumes"
+                                    ? "View and manage your uploaded resumes."
+                                    : "Review your previous resume analyses."}
                         </p>
                     </div>
 
-                    {/* Profile Section */}
                     <div className="profile-section">
+                        <div className="notification">🔔</div>
 
-                        <div className="notification">
-                            🔔
-                        </div>
-
-                        {/* Profile Button */}
                         <button
+                            type="button"
                             className="profile-trigger"
                             onClick={() =>
-                                setShowProfileMenu(
-                                    (prev) => !prev
-                                )
+                                setShowProfileMenu((previous) => !previous)
                             }
                         >
-
                             <div className="profile-avatar">
-                                {user?.name
-                                    ?.charAt(0)
-                                    .toUpperCase()}
+                                {user?.name?.charAt(0).toUpperCase()}
                             </div>
 
                             <div className="profile-info">
-
-                                <span>
-                                    {user?.name}
-                                </span>
-
-                                <small>
-                                    Job Seeker
-                                </small>
-
+                                <span>{user?.name}</span>
+                                <small>Job Seeker</small>
                             </div>
-
                         </button>
 
-                        {/* Profile Dropdown */}
                         {showProfileMenu && (
                             <div className="profile-dropdown">
-
                                 <div className="dropdown-user">
-
-                                    <strong>
-                                        {user?.name}
-                                    </strong>
-
-                                    <small>
-                                        {user?.email}
-                                    </small>
-
+                                    <strong>{user?.name}</strong>
+                                    <small>{user?.email}</small>
                                 </div>
 
-                                <button>
+                                <button type="button">
                                     👤 Profile
                                 </button>
 
-                                <button>
+                                <button type="button">
                                     ⚙️ Settings
                                 </button>
 
                                 <button
+                                    type="button"
                                     onClick={() => {
                                         setShowProfileMenu(false);
                                         setShowLogoutConfirm(true);
@@ -371,46 +422,25 @@ function Dashboard() {
                                 >
                                     <FiPower /> Logout
                                 </button>
-
                             </div>
                         )}
-
                     </div>
-
                 </header>
 
-                {/* Welcome Section */}
-                <section className="welcome-section">
-
-                    <h2>
-                        Welcome back, {user?.name} 👋
-                    </h2>
-
-                    <p>
-                        Upload your resume and get
-                        AI-powered insights to improve it.
-                    </p>
-
-                </section>
-
-                {/* Logout Confirmation Modal */}
+                {/* Logout confirmation */}
                 {showLogoutConfirm && (
                     <div className="logout-overlay">
-
                         <div className="logout-modal">
-
-                            <h2>
-                                Are you sure you want to logout?
-                            </h2>
+                            <h2>Are you sure you want to logout?</h2>
 
                             <p>
-                                You will need to login again
-                                to access your account.
+                                You will need to login again to access
+                                your account.
                             </p>
 
                             <div className="logout-actions">
-
                                 <button
+                                    type="button"
                                     className="cancel-button"
                                     onClick={() =>
                                         setShowLogoutConfirm(false)
@@ -420,153 +450,175 @@ function Dashboard() {
                                 </button>
 
                                 <button
+                                    type="button"
                                     className="confirm-logout-button"
                                     onClick={handleLogout}
                                 >
                                     Logout
                                 </button>
-
                             </div>
-
                         </div>
-
                     </div>
                 )}
 
-                {/* Statistics */}
-                <div className="stats-container">
+                {/* Dashboard home */}
+                {activeSection === "dashboard" && (
+                    <>
+                        <section className="welcome-section">
+                            <h2>Welcome back, {user?.name} 👋</h2>
 
-                    <div className="stat-card">
+                            <p>
+                                Upload your resume and get AI-powered
+                                insights to improve it.
+                            </p>
+                        </section>
 
-                        <div className="stat-icon">
-                            📊
+                        <div className="stats-container">
+                            <div className="stat-card">
+                                <div className="stat-icon">📊</div>
+                                <div>
+                                    <p>ATS Score</p>
+                                    <h3>--</h3>
+                                </div>
+                            </div>
+
+                            <div className="stat-card">
+                                <div className="stat-icon">📄</div>
+                                <div>
+                                    <p>Resumes</p>
+                                    <h3>{resumes.length}</h3>
+                                </div>
+                            </div>
+
+                            <div className="stat-card">
+                                <div className="stat-icon">🔍</div>
+                                <div>
+                                    <p>Analyses</p>
+                                    <h3>0</h3>
+                                </div>
+                            </div>
                         </div>
 
-                        <div>
-                            <p>ATS Score</p>
-                            <h3>--</h3>
-                        </div>
+                        <section className="upload-section">
+                            <h2>Upload Your Resume</h2>
 
-                    </div>
+                            <p>
+                                Select your resume to start the analysis.
+                            </p>
 
-                    <div className="stat-card">
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept=".pdf,.docx,.jpg,.jpeg,.png"
+                                disabled={uploading}
+                                onChange={(event) => {
+                                    const file =
+                                        event.target.files?.[0] ?? null;
 
-                        <div className="stat-icon">
-                            📄
-                        </div>
+                                    setSelectedFile(file);
+                                    setUploadMessage("");
 
-                        <div>
-                            <p>Resumes</p>
-                            <h3>{resumes.length}</h3>
-                        </div>
+                                    if (file) {
+                                        const error = validateFile(file);
 
-                    </div>
+                                        if (error) {
+                                            setUploadMessage(error);
+                                        }
+                                    }
+                                }}
+                            />
 
-                    <div className="stat-card">
-
-                        <div className="stat-icon">
-                            🔍
-                        </div>
-
-                        <div>
-                            <p>Analyses</p>
-                            <h3>0</h3>
-                        </div>
-
-                    </div>
-
-                </div>
-
-                {/* Resume Upload */}
-                <section className="upload-section">
-
-                    <h2>
-                        Upload Your Resume
-                    </h2>
-
-                    <p>
-                        Select your resume to start the analysis.
-                    </p>
-
-                    <input
-                        type="file"
-                        accept=".pdf,.docx,.jpg,.jpeg,.png"
-                        onChange={(e) => {
-                            const file =
-                                e.target.files?.[0] || null;
-
-                            setSelectedFile(file);
-                            setUploadMessage("");
-                        }}
-                    />
-
-                    {selectedFile && (
-                        <p className="selected-file">
-                            Selected: {selectedFile.name}
-                        </p>
-                    )}
-
-                    <button
-                        onClick={handleUpload}
-                        disabled={uploading}
-                    >
-                        {uploading
-                            ? "Uploading..."
-                            : "Upload Resume"}
-                    </button>
-
-                    {uploadMessage && (
-                        <p className="upload-message">
-                            {uploadMessage}
-                        </p>
-                    )}
-
-                </section>
-
-                {/* My Resumes */}
-                <section className="resumes-section">
-
-                    <h2>My Resumes</h2>
-
-                    {resumes.length === 0 ? (
-                        <p>
-                            No resumes uploaded yet.
-                        </p>
-                    ) : (
-                        <div className="resume-list">
-
-                            {resumes.map((resume) => (
-                                <div
-                                    className="resume-card"
-                                    key={resume._id}
-                                >
-
-                                    <div>
-                                        <h3>
-                                            {resume.fileName}
-                                        </h3>
-
-                                        <p>
-                                            {resume.fileType}
-                                        </p>
-                                    </div>
+                            {selectedFile && (
+                                <div className="selected-file">
+                                    <p>File: {selectedFile.name}</p>
 
                                     <p>
-                                        {new Date(
-                                            resume.createdAt
-                                        ).toLocaleDateString()}
+                                        Size:{" "}
+                                        {(
+                                            selectedFile.size /
+                                            (1024 * 1024)
+                                        ).toFixed(2)}{" "}
+                                        MB
                                     </p>
-
                                 </div>
-                            ))}
+                            )}
 
-                        </div>
-                    )}
+                            <button
+                                type="button"
+                                onClick={handleUpload}
+                                disabled={uploading}
+                            >
+                                {uploading
+                                    ? "Uploading..."
+                                    : "Upload Resume"}
+                            </button>
 
-                </section>
+                            {uploadMessage && (
+                                <p
+                                    className="upload-message"
+                                    role="status"
+                                >
+                                    {uploadMessage}
+                                </p>
+                            )}
+                        </section>
+                    </>
+                )}
 
+                {/* Uploaded resumes */}
+                {activeSection === "resumes" && (
+                    <section className="resumes-section">
+                        <h2>My Resumes</h2>
+
+                        {resumes.length === 0 ? (
+                            <p>No resumes uploaded yet.</p>
+                        ) : (
+                            <div className="resume-list">
+                                {resumes.map((resume) => (
+                                    <div
+                                        className="resume-card"
+                                        key={resume._id}
+                                    >
+                                        <div>
+                                            <h3>{resume.fileName}</h3>
+                                            <p>{resume.fileType}</p>
+                                            <p>
+                                                Uploaded:{" "}
+                                                {new Date(
+                                                    resume.createdAt
+                                                ).toLocaleDateString()}
+                                            </p>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            className="delete-resume-button"
+                                            disabled={
+                                                deletingResumeId !== null
+                                            }
+                                            onClick={() =>
+                                                handleDeleteResume(resume._id)
+                                            }
+                                        >
+                                            {deletingResumeId === resume._id
+                                                ? "Deleting..."
+                                                : "Delete"}
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </section>
+                )}
+
+                {/* Analysis history */}
+                {activeSection === "history" && (
+                    <section className="recent-section">
+                        <h2>Analysis History</h2>
+                        <p>No analyses available yet.</p>
+                    </section>
+                )}
             </main>
-
         </div>
     );
 }
