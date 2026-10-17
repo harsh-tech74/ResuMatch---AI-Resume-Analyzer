@@ -5,9 +5,9 @@
 }
 
 :root {
-    --purple: #8B5CF6;
-    --purple-dark: #6D28D9;
-    --purple-rgb: 139, 92, 246;
+    --purple: #E30B5C;
+    --purple-dark: #B00846;
+    --purple-rgb: 227, 11, 92;
     --purple-soft: rgba(var(--purple-rgb), 0.12);
 
     --dark: #0B0714;
@@ -18,8 +18,8 @@
     --grey-500: #6B7280;
     --grey-400: #9CA3AF;
     --grey-300: #D1D5DB;
-    --grey-200: #E5E7EB;
-    --grey-100: #F5F3FF;
+    --grey-200: #D5C7F5;
+    --grey-100: #E8DEFF;
 }
 
 /* ================= LOGIN PAGE ================= */

@@ -1,7 +1,7 @@
-
 import { useEffect, useRef, useState } from "react";
-import "./dashboard.css";
+import { useNavigate } from "react-router-dom";
 import { FiPower } from "react-icons/fi";
+import "./dashboard.css";
 
 type User = {
     name: string;
@@ -22,7 +22,17 @@ type Section = "dashboard" | "resumes" | "history";
 
 const API_URL = "http://localhost:5000/api";
 
+async function readJson(response: Response): Promise<any> {
+    try {
+        return await response.json();
+    } catch {
+        return {};
+    }
+}
+
 function Dashboard() {
+    const navigate = useNavigate();
+
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -32,18 +42,18 @@ function Dashboard() {
     const [showProfileMenu, setShowProfileMenu] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
+    const [openMenuId, setOpenMenuId] = useState<string | null>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
     const [uploadMessage, setUploadMessage] = useState("");
 
     const [resumes, setResumes] = useState<Resume[]>([]);
-    const [deletingResumeId, setDeletingResumeId] = useState<string | null>(
-        null
-    );
+    const [deletingResumeId, setDeletingResumeId] =
+        useState<string | null>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Load profile and resumes when the dashboard opens
+    // Load the logged-in user's profile and resumes.
     useEffect(() => {
         let cancelled = false;
 
@@ -51,7 +61,7 @@ function Dashboard() {
             const token = localStorage.getItem("token");
 
             if (!token) {
-                window.location.href = "/login";
+                navigate("/login", { replace: true });
                 return;
             }
 
@@ -66,20 +76,22 @@ function Dashboard() {
                         fetch(`${API_URL}/resume`, { headers }),
                     ]);
 
-                const profileData = await profileResponse.json();
+                const profileData = await readJson(profileResponse);
+
+                if (cancelled) return;
 
                 if (!profileResponse.ok) {
                     localStorage.removeItem("token");
                     localStorage.removeItem("user");
-                    window.location.href = "/login";
+                    navigate("/login", { replace: true });
                     return;
                 }
 
-                const resumesData = await resumesResponse.json();
+                setUser(profileData.user ?? null);
+
+                const resumesData = await readJson(resumesResponse);
 
                 if (cancelled) return;
-
-                setUser(profileData.user);
 
                 if (resumesResponse.ok) {
                     setResumes(
@@ -90,7 +102,7 @@ function Dashboard() {
                 } else {
                     console.error(
                         "Failed to fetch resumes:",
-                        resumesData.message
+                        resumesData.message || resumesResponse.status
                     );
                 }
             } catch (error) {
@@ -109,9 +121,9 @@ function Dashboard() {
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [navigate]);
 
-    // Validate selected resume
+    // Validate the selected resume.
     const validateFile = (file: File): string | null => {
         const allowedExtensions = [
             ".pdf",
@@ -142,16 +154,76 @@ function Dashboard() {
         return null;
     };
 
-    // Log out the user
+    // Log out the user.
     const handleLogout = () => {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
-        window.location.href = "/login";
+        navigate("/login", { replace: true });
     };
 
-    // Delete a resume
+
+    const handleViewResume = async (resumeId: string) => {
+        const token = localStorage.getItem("token");
+
+        if (!token) {
+            localStorage.removeItem("user");
+            navigate("/login", { replace: true });
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                `${API_URL}/resume/${encodeURIComponent(resumeId)}/view`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+
+            if (response.status === 401 || response.status === 403) {
+                localStorage.removeItem("token");
+                localStorage.removeItem("user");
+                navigate("/login", { replace: true });
+                return;
+            }
+
+            if (!response.ok) {
+                throw new Error("Unable to open this resume.");
+            }
+
+            const blob = await response.blob();
+            const fileUrl = URL.createObjectURL(blob);
+            const newTab = window.open(fileUrl, "_blank");
+
+            if (!newTab) {
+                URL.revokeObjectURL(fileUrl);
+                throw new Error(
+                    "Popup blocked. Please allow popups and try again."
+                );
+            }
+
+            newTab.opener = null;
+
+            // Keep the URL available while the new tab displays the file.
+            window.setTimeout(() => {
+                URL.revokeObjectURL(fileUrl);
+            }, 60000);
+        } catch (error) {
+            console.error("View resume error:", error);
+
+            window.alert(
+                error instanceof Error
+                    ? error.message
+                    : "Something went wrong while opening the resume."
+            );
+        }
+    };
+
+
+    // Delete a resume.
     const handleDeleteResume = async (resumeId: string) => {
-        if (deletingResumeId) return;
+        if (deletingResumeId !== null) return;
 
         const confirmed = window.confirm(
             "Are you sure you want to delete this resume? This action cannot be undone."
@@ -162,10 +234,9 @@ function Dashboard() {
         const token = localStorage.getItem("token");
 
         if (!token) {
-            alert("Your session has expired. Please log in again.");
             localStorage.removeItem("token");
             localStorage.removeItem("user");
-            window.location.href = "/login";
+            navigate("/login", { replace: true });
             return;
         }
 
@@ -182,15 +253,22 @@ function Dashboard() {
                 }
             );
 
-            const data = await response.json();
+            const data = await readJson(response);
+
+            if (response.status === 401 || response.status === 403) {
+                localStorage.removeItem("token");
+                localStorage.removeItem("user");
+                navigate("/login", { replace: true });
+                return;
+            }
 
             if (!response.ok) {
                 throw new Error(
-                    data.message || "Failed to delete resume."
+                    data.message ||
+                    `Failed to delete resume. Status: ${response.status}`
                 );
             }
 
-            // Remove the deleted resume from the UI
             setResumes((currentResumes) =>
                 currentResumes.filter(
                     (resume) => resume._id !== resumeId
@@ -201,7 +279,7 @@ function Dashboard() {
         } catch (error) {
             console.error("Delete resume error:", error);
 
-            alert(
+            window.alert(
                 error instanceof Error
                     ? error.message
                     : "Something went wrong while deleting the resume."
@@ -211,7 +289,7 @@ function Dashboard() {
         }
     };
 
-    // Upload the selected resume
+    // Upload the selected resume.
     const handleUpload = async () => {
         if (uploading) return;
 
@@ -232,7 +310,7 @@ function Dashboard() {
         if (!token) {
             localStorage.removeItem("token");
             localStorage.removeItem("user");
-            window.location.href = "/login";
+            navigate("/login", { replace: true });
             return;
         }
 
@@ -254,51 +332,61 @@ function Dashboard() {
                 }
             );
 
-            const uploadData = await uploadResponse.json();
+            const uploadData = await readJson(uploadResponse);
 
-            if (!uploadResponse.ok) {
-                setUploadMessage(
-                    uploadData.message || "Resume upload failed."
-                );
+            if (
+                uploadResponse.status === 401 ||
+                uploadResponse.status === 403
+            ) {
+                localStorage.removeItem("token");
+                localStorage.removeItem("user");
+                navigate("/login", { replace: true });
                 return;
             }
 
-            setUploadMessage("Resume uploaded successfully!");
+            if (!uploadResponse.ok) {
+                throw new Error(
+                    uploadData.message ||
+                    `Resume upload failed. Status: ${uploadResponse.status}`
+                );
+            }
+
             setSelectedFile(null);
 
             if (fileInputRef.current) {
                 fileInputRef.current.value = "";
             }
 
-            // Refresh the resume list after successful upload
-            const listResponse = await fetch(
-                `${API_URL}/resume`,
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                }
-            );
+            // Refresh the resume list after successful upload.
+            const listResponse = await fetch(`${API_URL}/resume`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
 
-            const listData = await listResponse.json();
+            const listData = await readJson(listResponse);
 
-            if (listResponse.ok) {
-                setResumes(
-                    Array.isArray(listData.resumes)
-                        ? listData.resumes
-                        : []
-                );
-            } else {
-                console.error(
-                    "Could not refresh resume list:",
-                    listData.message
+            if (!listResponse.ok) {
+                throw new Error(
+                    listData.message ||
+                    "Resume uploaded, but the resume list could not be refreshed."
                 );
             }
+
+            setResumes(
+                Array.isArray(listData.resumes)
+                    ? listData.resumes
+                    : []
+            );
+
+            setUploadMessage("Resume uploaded successfully!");
         } catch (error) {
             console.error("Resume upload error:", error);
 
             setUploadMessage(
-                "Something went wrong. Please check your connection and try again."
+                error instanceof Error
+                    ? error.message
+                    : "Something went wrong. Please check your connection and try again."
             );
         } finally {
             setUploading(false);
@@ -389,11 +477,11 @@ function Dashboard() {
                             }
                         >
                             <div className="profile-avatar">
-                                {user?.name?.charAt(0).toUpperCase()}
+                                {user?.name?.charAt(0).toUpperCase() || "U"}
                             </div>
 
                             <div className="profile-info">
-                                <span>{user?.name}</span>
+                                <span>{user?.name || "User"}</span>
                                 <small>Job Seeker</small>
                             </div>
                         </button>
@@ -405,11 +493,21 @@ function Dashboard() {
                                     <small>{user?.email}</small>
                                 </div>
 
-                                <button type="button">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowProfileMenu(false);
+                                    }}
+                                >
                                     👤 Profile
                                 </button>
 
-                                <button type="button">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowProfileMenu(false);
+                                    }}
+                                >
                                     ⚙️ Settings
                                 </button>
 
@@ -465,7 +563,7 @@ function Dashboard() {
                 {activeSection === "dashboard" && (
                     <>
                         <section className="welcome-section">
-                            <h2>Welcome back, {user?.name} 👋</h2>
+                            <h2>Welcome back, {user?.name || "User"} 👋</h2>
 
                             <p>
                                 Upload your resume and get AI-powered
@@ -590,20 +688,48 @@ function Dashboard() {
                                             </p>
                                         </div>
 
-                                        <button
-                                            type="button"
-                                            className="delete-resume-button"
-                                            disabled={
-                                                deletingResumeId !== null
-                                            }
-                                            onClick={() =>
-                                                handleDeleteResume(resume._id)
-                                            }
-                                        >
-                                            {deletingResumeId === resume._id
-                                                ? "Deleting..."
-                                                : "Delete"}
-                                        </button>
+
+                                        <div className="resume-actions">
+                                            <button
+                                                type="button"
+                                                className="resume-menu-button"
+                                                aria-label={`Options for ${resume.fileName}`}
+                                                aria-expanded={openMenuId === resume._id}
+                                                onClick={() =>
+                                                    setOpenMenuId((current) =>
+                                                        current === resume._id ? null : resume._id
+                                                    )
+                                                }
+                                            >
+                                                &#8942;
+                                            </button>
+
+                                            {openMenuId === resume._id && (
+                                                <div className="resume-dropdown">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setOpenMenuId(null);
+                                                            void handleViewResume(resume._id);
+                                                        }}
+                                                    >
+                                                        View Resume
+                                                    </button>
+
+                                                    <button
+                                                        type="button"
+                                                        disabled={deletingResumeId !== null}
+                                                        onClick={() => {
+                                                            setOpenMenuId(null);
+                                                            void handleDeleteResume(resume._id);
+                                                        }}
+                                                    >
+                                                        Delete Resume
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+
                                     </div>
                                 ))}
                             </div>

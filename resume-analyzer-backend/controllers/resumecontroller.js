@@ -88,6 +88,44 @@ const getUserResumes = async (req, res) => {
     }
 };
 
+const viewResume = async (req, res) => {
+    try {
+        const resume = await Resume.findOne({
+            _id: req.params.id,
+            userId: req.user.userId,
+        });
+
+        if (!resume) {
+            return res.status(404).json({
+                message: "Resume not found",
+            });
+        }
+
+        const filePath = path.resolve(resume.filePath);
+
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({
+                message: "Resume file not found",
+            });
+        }
+
+        const isDownload = req.query.download === "true";
+
+        res.setHeader(
+            "Content-Disposition",
+            `${isDownload ? "attachment" : "inline"}; filename="${path.basename(resume.fileName)}"`
+        );
+
+        return res.sendFile(filePath);
+    } catch (error) {
+        console.error("View resume error:", error);
+
+        return res.status(500).json({
+            message: "Server error while opening resume",
+        });
+    }
+};
+
 const deleteResume = async (req, res) => {
     try {
         const resume = await Resume.findOne({
@@ -122,4 +160,4 @@ const deleteResume = async (req, res) => {
 };
 
 
-module.exports = { uploadResume, getUserResumes, deleteResume };
+module.exports = { uploadResume, getUserResumes, deleteResume, viewResume };
