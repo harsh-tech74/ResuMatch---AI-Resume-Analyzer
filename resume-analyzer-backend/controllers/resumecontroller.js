@@ -5,6 +5,7 @@ const fs = require("fs");
 const path = require("path");
 const { createWorker } = require("tesseract.js");
 
+const { analyzeResumeText } = require("../services/resumeAnalysis");
 
 const uploadResume = async (req, res) => {
     try {
@@ -18,17 +19,19 @@ const uploadResume = async (req, res) => {
 
         let extractedText = "";
 
+
         if (extension === ".pdf") {
             const fileBuffer = fs.readFileSync(req.file.path);
-
             const parser = new PDFParse({ data: fileBuffer });
 
-            const pdfData = await parser.getText();
-
-            extractedText = pdfData.text;
-
-            await parser.destroy();
+            try {
+                const pdfData = await parser.getText();
+                extractedText = pdfData.text || "";
+            } finally {
+                await parser.destroy();
+            }
         }
+
         else if (extension === ".docx") {
             const result = await mammoth.extractRawText({
                 path: req.file.path,
@@ -49,6 +52,11 @@ const uploadResume = async (req, res) => {
 
             await worker.terminate();
         }
+
+        console.log("File type:", extension);
+        console.log("Extracted text length:", extractedText.length);
+        console.log("Extracted text preview:", JSON.stringify(extractedText.slice(0, 500)));
+
 
         const resume = await Resume.create({
             userId: req.user.userId,
@@ -159,5 +167,40 @@ const deleteResume = async (req, res) => {
     }
 };
 
+const analyzeResume = async (req, res) => {
+    try {
+        const resume = await Resume.findOne({
+            _id: req.params.id,
+            userId: req.user.userId
+        });
 
-module.exports = { uploadResume, getUserResumes, deleteResume, viewResume };
+        if (!resume) {
+            return res.status(404).json({
+                message: "Resume not found"
+            });
+        }
+
+        if (!resume.extractedText || !resume.extractedText.trim()) {
+            return res.status(400).json({
+                message: "No extracted text available for analysis"
+            });
+        }
+
+        const analysis =  await analyzeResumeText(resume.extractedText);
+
+        return res.status(200).json({
+            message: "Resume analyzed successfully",
+            resumeId: resume._id,
+            analysis
+        });
+    } catch (error) {
+        console.error("Resume analysis error:", error);
+
+        return res.status(500).json({
+            message: "Failed to analyze resume"
+        });
+    }
+};
+
+
+module.exports = { uploadResume, getUserResumes, deleteResume, viewResume, analyzeResume };

@@ -9,12 +9,13 @@ const {
     uploadResume,
     getUserResumes,
     deleteResume,
-    viewResume,
+    viewResume, analyzeResume
 } = require("../controllers/resumecontroller");
 
 router.get("/", protect, getUserResumes);
+router.post("/upload", protect, upload.single("resume"), uploadResume);
 router.get("/:id/view", protect, viewResume);
 router.delete("/:id", protect, deleteResume);
-router.post("/upload", protect, upload.single("resume"), uploadResume);
+router.post("/:id/analyze", protect, analyzeResume);
 
 module.exports = router;

@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiPower } from "react-icons/fi";
@@ -20,11 +21,31 @@ type Resume = {
 
 type Section = "dashboard" | "resumes" | "history";
 
+type ResumeAnalysis = {
+    overallScore: number;
+    summary: string;
+    detectedSections: string[];
+    strengths: string[];
+    weaknesses: string[];
+    missingSections: string[];
+    skillsFound: string[];
+    suggestions: string[];
+};
+
+type ApiResponse = {
+    message?: string;
+    user?: User;
+    resumes?: Resume[];
+    analysis?: ResumeAnalysis;
+};
+
 const API_URL = "http://localhost:5000/api";
 
-async function readJson(response: Response): Promise<any> {
+async function readJson(
+    response: Response
+): Promise<ApiResponse> {
     try {
-        return await response.json();
+        return (await response.json()) as ApiResponse;
     } catch {
         return {};
     }
@@ -50,6 +71,13 @@ function Dashboard() {
     const [resumes, setResumes] = useState<Resume[]>([]);
     const [deletingResumeId, setDeletingResumeId] =
         useState<string | null>(null);
+
+    const [analyzingResumeId, setAnalyzingResumeId] =
+        useState<string | null>(null);
+    const [analysisError, setAnalysisError] = useState("");
+    const [selectedAnalysis, setSelectedAnalysis] =
+        useState<ResumeAnalysis | null>(null);
+    const [analysisResumeName, setAnalysisResumeName] = useState("");
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -161,7 +189,7 @@ function Dashboard() {
         navigate("/login", { replace: true });
     };
 
-
+    // Open a resume.
     const handleViewResume = async (resumeId: string) => {
         const token = localStorage.getItem("token");
 
@@ -205,7 +233,6 @@ function Dashboard() {
 
             newTab.opener = null;
 
-            // Keep the URL available while the new tab displays the file.
             window.setTimeout(() => {
                 URL.revokeObjectURL(fileUrl);
             }, 60000);
@@ -220,7 +247,6 @@ function Dashboard() {
         }
     };
 
-
     // Delete a resume.
     const handleDeleteResume = async (resumeId: string) => {
         if (deletingResumeId !== null) return;
@@ -234,7 +260,6 @@ function Dashboard() {
         const token = localStorage.getItem("token");
 
         if (!token) {
-            localStorage.removeItem("token");
             localStorage.removeItem("user");
             navigate("/login", { replace: true });
             return;
@@ -270,10 +295,19 @@ function Dashboard() {
             }
 
             setResumes((currentResumes) =>
-                currentResumes.filter(
-                    (resume) => resume._id !== resumeId
-                )
+                currentResumes.filter((resume) => resume._id !== resumeId)
             );
+
+            if (selectedAnalysis && analysisResumeName) {
+                const deletedResume = resumes.find(
+                    (resume) => resume._id === resumeId
+                );
+
+                if (deletedResume?.fileName === analysisResumeName) {
+                    setSelectedAnalysis(null);
+                    setAnalysisResumeName("");
+                }
+            }
 
             setUploadMessage("");
         } catch (error) {
@@ -308,7 +342,6 @@ function Dashboard() {
         const token = localStorage.getItem("token");
 
         if (!token) {
-            localStorage.removeItem("token");
             localStorage.removeItem("user");
             navigate("/login", { replace: true });
             return;
@@ -393,6 +426,68 @@ function Dashboard() {
         }
     };
 
+    // Request an AI analysis for a resume.
+    const handleAnalyzeResume = async (resume: Resume) => {
+        const token = localStorage.getItem("token");
+
+        if (!token) {
+            localStorage.removeItem("user");
+            navigate("/login", { replace: true });
+            return;
+        }
+
+        try {
+            setAnalyzingResumeId(resume._id);
+            setAnalysisError("");
+            setSelectedAnalysis(null);
+            setAnalysisResumeName(resume.fileName);
+
+            const response = await fetch(
+                `${API_URL}/resume/${encodeURIComponent(resume._id)}/analyze`,
+                {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+
+            const data = await readJson(response);
+
+            if (response.status === 401 || response.status === 403) {
+                localStorage.removeItem("token");
+                localStorage.removeItem("user");
+                navigate("/login", { replace: true });
+                return;
+            }
+
+            if (!response.ok) {
+                throw new Error(
+                    data.message ||
+                    `Analysis failed. Status: ${response.status}`
+                );
+            }
+
+            if (!data.analysis) {
+                throw new Error(
+                    "The server response did not contain analysis results."
+                );
+            }
+
+            setSelectedAnalysis(data.analysis);
+        } catch (error) {
+            console.error("Resume analysis error:", error);
+
+            setAnalysisError(
+                error instanceof Error
+                    ? error.message
+                    : "Analysis failed. Please try again."
+            );
+        } finally {
+            setAnalyzingResumeId(null);
+        }
+    };
+
     if (loading) {
         return <p>Loading...</p>;
     }
@@ -412,6 +507,7 @@ function Dashboard() {
                         onClick={(event) => {
                             event.preventDefault();
                             setActiveSection("dashboard");
+                            setAnalysisError("");
                         }}
                     >
                         <span>🏠</span>
@@ -425,6 +521,7 @@ function Dashboard() {
                         onClick={(event) => {
                             event.preventDefault();
                             setActiveSection("resumes");
+                            setAnalysisError("");
                         }}
                     >
                         <span>📄</span>
@@ -438,6 +535,7 @@ function Dashboard() {
                         onClick={(event) => {
                             event.preventDefault();
                             setActiveSection("history");
+                            setAnalysisError("");
                         }}
                     >
                         <span>📊</span>
@@ -495,18 +593,14 @@ function Dashboard() {
 
                                 <button
                                     type="button"
-                                    onClick={() => {
-                                        setShowProfileMenu(false);
-                                    }}
+                                    onClick={() => setShowProfileMenu(false)}
                                 >
                                     👤 Profile
                                 </button>
 
                                 <button
                                     type="button"
-                                    onClick={() => {
-                                        setShowProfileMenu(false);
-                                    }}
+                                    onClick={() => setShowProfileMenu(false)}
                                 >
                                     ⚙️ Settings
                                 </button>
@@ -532,8 +626,8 @@ function Dashboard() {
                             <h2>Are you sure you want to logout?</h2>
 
                             <p>
-                                You will need to login again to access
-                                your account.
+                                You will need to login again to access your
+                                account.
                             </p>
 
                             <div className="logout-actions">
@@ -563,11 +657,13 @@ function Dashboard() {
                 {activeSection === "dashboard" && (
                     <>
                         <section className="welcome-section">
-                            <h2>Welcome back, {user?.name || "User"} 👋</h2>
+                            <h2>
+                                Welcome back, {user?.name || "User"} 👋
+                            </h2>
 
                             <p>
-                                Upload your resume and get AI-powered
-                                insights to improve it.
+                                Upload your resume and get AI-powered insights
+                                to improve it.
                             </p>
                         </section>
 
@@ -575,8 +671,12 @@ function Dashboard() {
                             <div className="stat-card">
                                 <div className="stat-icon">📊</div>
                                 <div>
-                                    <p>ATS Score</p>
-                                    <h3>--</h3>
+                                    <p>Latest Resume Score</p>
+                                    <h3>
+                                        {selectedAnalysis
+                                            ? `${selectedAnalysis.overallScore}/100`
+                                            : "--"}
+                                    </h3>
                                 </div>
                             </div>
 
@@ -591,8 +691,8 @@ function Dashboard() {
                             <div className="stat-card">
                                 <div className="stat-icon">🔍</div>
                                 <div>
-                                    <p>Analyses</p>
-                                    <h3>0</h3>
+                                    <p>Analyses this session</p>
+                                    <h3>{selectedAnalysis ? 1 : 0}</h3>
                                 </div>
                             </div>
                         </div>
@@ -629,7 +729,6 @@ function Dashboard() {
                             {selectedFile && (
                                 <div className="selected-file">
                                     <p>File: {selectedFile.name}</p>
-
                                     <p>
                                         Size:{" "}
                                         {(
@@ -652,10 +751,7 @@ function Dashboard() {
                             </button>
 
                             {uploadMessage && (
-                                <p
-                                    className="upload-message"
-                                    role="status"
-                                >
+                                <p className="upload-message" role="status">
                                     {uploadMessage}
                                 </p>
                             )}
@@ -688,16 +784,19 @@ function Dashboard() {
                                             </p>
                                         </div>
 
-
                                         <div className="resume-actions">
                                             <button
                                                 type="button"
                                                 className="resume-menu-button"
                                                 aria-label={`Options for ${resume.fileName}`}
-                                                aria-expanded={openMenuId === resume._id}
+                                                aria-expanded={
+                                                    openMenuId === resume._id
+                                                }
                                                 onClick={() =>
                                                     setOpenMenuId((current) =>
-                                                        current === resume._id ? null : resume._id
+                                                        current === resume._id
+                                                            ? null
+                                                            : resume._id
                                                     )
                                                 }
                                             >
@@ -710,7 +809,9 @@ function Dashboard() {
                                                         type="button"
                                                         onClick={() => {
                                                             setOpenMenuId(null);
-                                                            void handleViewResume(resume._id);
+                                                            void handleViewResume(
+                                                                resume._id
+                                                            );
                                                         }}
                                                     >
                                                         View Resume
@@ -718,18 +819,44 @@ function Dashboard() {
 
                                                     <button
                                                         type="button"
-                                                        disabled={deletingResumeId !== null}
+                                                        disabled={
+                                                            analyzingResumeId !==
+                                                            null
+                                                        }
                                                         onClick={() => {
                                                             setOpenMenuId(null);
-                                                            void handleDeleteResume(resume._id);
+                                                            void handleAnalyzeResume(
+                                                                resume
+                                                            );
                                                         }}
                                                     >
-                                                        Delete Resume
+                                                        {analyzingResumeId ===
+                                                            resume._id
+                                                            ? "Analyzing..."
+                                                            : "Analyze Resume"}
+                                                    </button>
+
+                                                    <button
+                                                        type="button"
+                                                        disabled={
+                                                            deletingResumeId !==
+                                                            null
+                                                        }
+                                                        onClick={() => {
+                                                            setOpenMenuId(null);
+                                                            void handleDeleteResume(
+                                                                resume._id
+                                                            );
+                                                        }}
+                                                    >
+                                                        {deletingResumeId ===
+                                                            resume._id
+                                                            ? "Deleting..."
+                                                            : "Delete Resume"}
                                                     </button>
                                                 </div>
                                             )}
                                         </div>
-
                                     </div>
                                 ))}
                             </div>
@@ -741,7 +868,193 @@ function Dashboard() {
                 {activeSection === "history" && (
                     <section className="recent-section">
                         <h2>Analysis History</h2>
-                        <p>No analyses available yet.</p>
+                        <p>
+                            Persistent analysis history has not been
+                            implemented yet.
+                        </p>
+                    </section>
+                )}
+
+                {/* Analysis loading and error messages */}
+                {analyzingResumeId && (
+                    <section className="analysis-status" role="status">
+                        <h2>Analyzing your resume...</h2>
+                        <p>
+                            Please wait while the AI reviews your resume.
+                            This may take a little time.
+                        </p>
+                    </section>
+                )}
+
+                {analysisError && (
+                    <section className="analysis-error" role="alert">
+                        <h2>Analysis unavailable</h2>
+                        <p>{analysisError}</p>
+                        <p>
+                            If the AI service is temporarily unavailable,
+                            wait a little before trying again.
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const resume = resumes.find(
+                                    (item) =>
+                                        item.fileName === analysisResumeName
+                                );
+
+                                if (resume) {
+                                    void handleAnalyzeResume(resume);
+                                } else {
+                                    setAnalysisError(
+                                        "Select the resume from My Resumes and try again."
+                                    );
+                                }
+                            }}
+                            disabled={analyzingResumeId !== null}
+                        >
+                            Try Again
+                        </button>
+                    </section>
+                )}
+
+                {/* Analysis results */}
+                {selectedAnalysis && (
+                    <section className="analysis-results">
+                        <div className="analysis-results-header">
+                            <div>
+                                <h2>Resume Analysis Results</h2>
+                                <p>{analysisResumeName}</p>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setSelectedAnalysis(null);
+                                    setAnalysisError("");
+                                }}
+                            >
+                                Close Results
+                            </button>
+                        </div>
+
+                        <div className="analysis-score-card">
+                            <p>Overall Resume Score</p>
+                            <h3>{selectedAnalysis.overallScore}/100</h3>
+                            <div
+                                className="analysis-score-track"
+                                role="progressbar"
+                                aria-label="Resume score"
+                                aria-valuemin={0}
+                                aria-valuemax={100}
+                                aria-valuenow={
+                                    selectedAnalysis.overallScore
+                                }
+                            >
+                                <div
+                                    className="analysis-score-fill"
+                                    style={{
+                                        width: `${selectedAnalysis.overallScore}%`,
+                                    }}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="analysis-summary">
+                            <h3>Summary</h3>
+                            <p>{selectedAnalysis.summary}</p>
+                        </div>
+
+                        <div className="analysis-grid">
+                            <div className="analysis-result-card">
+                                <h3>Strengths</h3>
+                                {selectedAnalysis.strengths.length ? (
+                                    <ul>
+                                        {selectedAnalysis.strengths.map(
+                                            (item, index) => (
+                                                <li key={index}>{item}</li>
+                                            )
+                                        )}
+                                    </ul>
+                                ) : (
+                                    <p>No strengths were returned.</p>
+                                )}
+                            </div>
+
+                            <div className="analysis-result-card">
+                                <h3>Areas to Improve</h3>
+                                {selectedAnalysis.weaknesses.length ? (
+                                    <ul>
+                                        {selectedAnalysis.weaknesses.map(
+                                            (item, index) => (
+                                                <li key={index}>{item}</li>
+                                            )
+                                        )}
+                                    </ul>
+                                ) : (
+                                    <p>No weaknesses were returned.</p>
+                                )}
+                            </div>
+
+                            <div className="analysis-result-card">
+                                <h3>Missing Sections</h3>
+                                {selectedAnalysis.missingSections.length ? (
+                                    <ul>
+                                        {selectedAnalysis.missingSections.map(
+                                            (item, index) => (
+                                                <li key={index}>{item}</li>
+                                            )
+                                        )}
+                                    </ul>
+                                ) : (
+                                    <p>No missing sections identified.</p>
+                                )}
+                            </div>
+
+                            <div className="analysis-result-card">
+                                <h3>Skills Found</h3>
+                                {selectedAnalysis.skillsFound.length ? (
+                                    <ul>
+                                        {selectedAnalysis.skillsFound.map(
+                                            (item, index) => (
+                                                <li key={index}>{item}</li>
+                                            )
+                                        )}
+                                    </ul>
+                                ) : (
+                                    <p>No skills were identified.</p>
+                                )}
+                            </div>
+
+                            <div className="analysis-result-card">
+                                <h3>Detected Sections</h3>
+                                {selectedAnalysis.detectedSections.length ? (
+                                    <ul>
+                                        {selectedAnalysis.detectedSections.map(
+                                            (item, index) => (
+                                                <li key={index}>{item}</li>
+                                            )
+                                        )}
+                                    </ul>
+                                ) : (
+                                    <p>No sections were identified.</p>
+                                )}
+                            </div>
+
+                            <div className="analysis-result-card">
+                                <h3>Suggestions</h3>
+                                {selectedAnalysis.suggestions.length ? (
+                                    <ul>
+                                        {selectedAnalysis.suggestions.map(
+                                            (item, index) => (
+                                                <li key={index}>{item}</li>
+                                            )
+                                        )}
+                                    </ul>
+                                ) : (
+                                    <p>No suggestions were returned.</p>
+                                )}
+                            </div>
+                        </div>
                     </section>
                 )}
             </main>
